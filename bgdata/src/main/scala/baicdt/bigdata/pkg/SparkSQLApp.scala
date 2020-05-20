@@ -21,6 +21,7 @@ object SparkSQLApp {
 
     //try{
      var v_date =""
+     var v_date1=""
 
       val sparkSession: SparkSession = SparkSession.builder()
       .appName("spark-sql-demo")
