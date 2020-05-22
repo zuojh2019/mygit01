@@ -6,6 +6,8 @@ import java.util.Properties
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import baicdt.bigdata.pkg.statisTaskStatus
+
 
 
 
@@ -18,6 +20,8 @@ object SparkSQLApp {
   def main(args: Array[String]): Unit = {
     System.setProperty("HADOOP_USER_NAME", "hdfs")
     System.setProperty("user.name", "hdfs")
+    var stStatus:statisTaskStatus=new statisTaskStatus
+    stStatus.runStatisTaskStatus()
 
     //try{
      var v_date =""
@@ -68,7 +72,7 @@ object SparkSQLApp {
     //conn_info2.setProperty("password", "test")
     conn_info3.setProperty("driver", "com.mysql.jdbc.Driver")
 
-
+    sparkSession.sql("use whdb")
     //从WEB MYSQL 库中读取接入任务表
     val rs_t_imp_task_df = sparkSession.read.format("jdbc").jdbc(url3, "t_imp_task", conn_info3)
     rs_t_imp_task_df.show()
@@ -86,21 +90,122 @@ object SparkSQLApp {
     sparkSession.sql("insert into whdb.dic_code select * from t_dic_code_tmp")
     rddf=sparkSession.sql("select count(1)  cn from whdb.dic_code")
     rddf.show()
+    //var rs_tmp_df=sparkSession.sql("select * from whdb.dic_code")
+    //rs_tmp_df.createOrReplaceTempView("tmp_dic_code")
+    //rs_tmp_df=sparkSession.sql("select * from whdb.t_imp_task")
+    //rs_tmp_df.createOrReplaceTempView("tmp_t_imp_task")
+
+    //按天统计生成任务类型结果表
+    var rs_result1=sparkSession.sql("select * from whdb.dic_code")
+    var v_date2="2020-05-13"
+
+    //按天统计任务类型
+    var sql4=" "+
+    " insert into t_result_day_task_type " +
+    " select  to_date(to_timestamp(task_start_time,'yyyy-MM-dd HH24:mi:ss') ,'yyyy-MM-dd'), "+
+      " m.task_schedule_type, "+
+     " n.dic_name, "+
+     " count(1) cn "+
+      "  from t_imp_task m, "+
+     " dic_code n "+
+     "   where m.task_schedule_type=n.dic_code "+
+     " and substr(m.task_start_time,1,10)= '" +v_date2 +  "'"+
+     " group by to_date(to_timestamp(task_start_time,'yyyy-MM-dd HH24:mi:ss') ,'yyyy-MM-dd'), " +
+      " m.task_schedule_type, "+
+    " n.dic_name "
+    rs_result1=sparkSession.sql(sql4)
+
+    sparkSession.sql("refresh table t_result_day_task_type")
 
 
+    //按月统计任务类型
+    var v_mon="2020-05"
+    sql4=" "+
+      " insert into t_result_mon_task_type " +
+      " select  substr(task_start_time,1,7), "+
+      " m.task_schedule_type, "+
+      " n.dic_name, "+
+      " count(1) cn "+
+      "  from t_imp_task m, "+
+      " dic_code n "+
+      "   where m.task_schedule_type=n.dic_code "+
+      " and substr(task_start_time,1,7)= '" +v_mon +  "'"+
+      " group by substr(task_start_time,1,7), " +
+      " m.task_schedule_type, "+
+      " n.dic_name "
+    rs_result1=sparkSession.sql(sql4)
 
 
+    //按周统计任务类型
+    var v_week="202020"
+    sql4=" "+
+      " insert into t_result_week_task_type " +
+      " select  substr(task_start_time,1,4)||"+"weekofyear(task_start_time), "+
+      " m.task_schedule_type, "+
+      " n.dic_name, "+
+      " count(1) cn "+
+      "  from t_imp_task m, "+
+      " dic_code n "+
+      "   where m.task_schedule_type=n.dic_code "+
+      " and substr(task_start_time,1,4)||"+"weekofyear(task_start_time)= '" +v_week +  "'"+
+      " group by substr(task_start_time,1,4)||"+"weekofyear(task_start_time), " +
+      " m.task_schedule_type, "+
+      " n.dic_name "
+    rs_result1=sparkSession.sql(sql4)
+
+    var v_hour="2020-05-13 19"
+    //按小时统计任务类型
+    sql4=" "+
+      " insert into t_result_hour_task_type " +
+      " select  substr(task_start_time,1,13) , "+
+      " m.task_schedule_type, "+
+      " n.dic_name, "+
+      " count(1) cn "+
+      "  from t_imp_task m, "+
+      " dic_code n "+
+      "   where m.task_schedule_type=n.dic_code "+
+      " and substr(task_start_time,1,13)= '" +v_hour +  "'"+
+      " group by substr(task_start_time,1,13), " +
+      " m.task_schedule_type, "+
+      " n.dic_name "
+    rs_result1=sparkSession.sql(sql4)
 
 
+    //获取web端MYSQL bigdata_sys数据库 连接
+
+    val url_bigdata_sys = "jdbc:mysql://flink01.baicdt.com:3306/bigdata_sys"
+    //val driver = "com.mysql.jdbc.Driver"
+    //数据入库，需要new一个Properties方法
+    val conn_info_bigdata_sys = new Properties()
+
+    //获取数据库的用户名，密码和运行的driver类
+    conn_info_bigdata_sys.setProperty("user", "root")
+    conn_info_bigdata_sys.setProperty("password", "123456")
+    //conn_info.setProperty("user", "test")
+    //conn_info.setProperty("password", "test")
+    conn_info_bigdata_sys.setProperty("driver", "com.mysql.jdbc.Driver")
+    //将spark-sql生成的报表结果表同步至BI报表库。
+    //从HIVE库同步任务类型统计日报至MYSQL库
+    sql4="select * from whdb.t_result_day_task_type"
+    var rs_result_mid_df=sparkSession.sql(sql4)
+    rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys,"t_result_day_task_type",conn_info_bigdata_sys)
+
+    //从HIVE库同步任务类型统计月报至MYSQL库
+    sql4="select * from whdb.t_result_mon_task_type"
+    rs_result_mid_df=sparkSession.sql(sql4)
+    rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys,"t_result_mon_task_type",conn_info_bigdata_sys)
 
 
+    //从HIVE库同步任务类型统计周报至MYSQL库
+    sql4="select * from whdb.t_result_week_task_type"
+    rs_result_mid_df=sparkSession.sql(sql4)
+    rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys,"t_result_week_task_type",conn_info_bigdata_sys)
 
 
-
-
-
-
-
+    //从HIVE库同步任务类型统计日报至MYSQL库
+    sql4="select * from whdb.t_result_hour_task_type"
+    rs_result_mid_df=sparkSession.sql(sql4)
+    rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys,"t_result_hour_task_type",conn_info_bigdata_sys)
 
 
 
@@ -211,7 +316,7 @@ object SparkSQLApp {
 
 
 
-    sparkSession.sql("use whdb")
+
 
     //客户日增量
     var sqlText1="select "+
