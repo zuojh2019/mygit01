@@ -7,7 +7,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import baicdt.bigdata.pkg.statisTaskStatus
-
+import baicdt.bigdata.pkg.statisTaskTypeResult
 
 
 
@@ -20,15 +20,45 @@ object SparkSQLApp {
   def main(args: Array[String]): Unit = {
     System.setProperty("HADOOP_USER_NAME", "hdfs")
     System.setProperty("user.name", "hdfs")
-    var stStatus:statisTaskStatus=new statisTaskStatus
-    stStatus.runStatisTaskStatus()
+    if (args.length==4) {
+      println(args(0).toString)
+      println(args(1).toString)
+      println(args(2).toString)
+      println(args(3).toString)
+    }
+    if (args.length !=1) {
+      println("请输入统计维度参数 日 day 月 mon 周 week 时 hour")
+      sys.exit(-1)
+    }
+    if (args.length==1) {
+      //var ary_timetype=args[0].toString()
+      //按天统计
+      var ary_timetype = "day"
+      ary_timetype=args(0).toString
 
+      var stStatus: statisTaskStatusResult = new statisTaskStatusResult
+      stStatus.runStatisTaskStatus(ary_timetype)
+
+      println("ccc")
+      var stType:statisTaskTypeResult=new statisTaskTypeResult
+      stType.runStatisTaskType(ary_timetype)
+
+      println("ddd")
+    }
+
+
+
+
+    //System.exit(0)
+    //System.exit()
+
+/* start
     //try{
      var v_date =""
 
       val sparkSession: SparkSession = SparkSession.builder()
       .appName("spark-sql-demo")
-      .master("local[*]")
+      //.master("local[*]")
       //.master("yarn")
       .config("hive.metastore.uris", "thrift://ambari03.baicdt.com:9083")
       .config("dfs.client.use.datanode.hostname", "true")//通过域名来访问HIVE,不是通过内网IP，因为本地程序和hadoop不是在一个网段，本地程序通过VPN访问的hadoop集群
@@ -824,7 +854,7 @@ object mysqlApp {
 
 */
 
-
+start */
 
 
 

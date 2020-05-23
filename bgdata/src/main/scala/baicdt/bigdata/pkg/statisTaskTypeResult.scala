@@ -1,19 +1,19 @@
 package baicdt.bigdata.pkg
-
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
-//按日 月 周 小时统计接入任务状态
-class statisTaskStatus {
+//按周期维度（日 月 周 时）统计任务类型
+class statisTaskTypeResult {
+
   //按日 月 周 小时统计接入任务状态
-  def runStatisTaskStatus(f_time_type:String){
+  def runStatisTaskType(f_time_type:String){
 
     //异常处理
     try {
-
+      println("in in in ")
       System.setProperty("HADOOP_USER_NAME", "hdfs")
       System.setProperty("user.name", "hdfs")
       var v_time_type = f_time_type
@@ -74,7 +74,7 @@ class statisTaskStatus {
 
       val sparkSession = SparkSession.builder()
         .appName("spark-sql-demo")
-        .master("local[*]")
+        //.master("local[*]")
         //.master("yarn")
         .config("hive.metastore.uris", "thrift://ambari03.baicdt.com:9083")
         .config("dfs.client.use.datanode.hostname", "true") //通过域名来访问HIVE,不是通过内网IP，因为本地程序和hadoop不是在一个网段，本地程序通过VPN访问的hadoop集群
@@ -147,34 +147,34 @@ class statisTaskStatus {
       var rs_result1 = sparkSession.sql("select * from whdb.dic_code")
 
 
-      //按天统计任务类型
-      sparkSession.sql("truncate table  whdb.t_result_day_task_status")
+      //按天统计任务类
+      sparkSession.sql("truncate table  whdb.t_result_day_task_type")
       var sql4 = " " +
-        " insert into t_result_day_task_status " +
-        " select  to_date(to_timestamp(status_update_time,'yyyy-MM-dd HH24:mi:ss') ,'yyyy-MM-dd'), " +
-        " m.task_status, " +
+        " insert into t_result_day_task_type " +
+        " select  to_date(to_timestamp(task_create_time,'yyyy-MM-dd HH24:mi:ss') ,'yyyy-MM-dd'), " +
+        " task_schedule_type, " +
         " n.dic_name, " +
         " count(1) cn " +
         "  from t_imp_task m, " +
         " dic_code n " +
-        "   where m.task_status=n.dic_code " +
-        " and substr(m.status_update_time,1,10)= '" + v_date2 + "'" +
-        " group by to_date(to_timestamp(status_update_time,'yyyy-MM-dd HH24:mi:ss') ,'yyyy-MM-dd'), " +
-        " m.task_status, " +
+        "   where task_schedule_type=n.dic_code " +
+        " and substr(m.task_create_time,1,10)= '" + v_date2 + "'" +
+        " group by to_date(to_timestamp(task_create_time,'yyyy-MM-dd HH24:mi:ss') ,'yyyy-MM-dd'), " +
+        " task_schedule_type, " +
         " n.dic_name "
 
       //按天统计
       if (v_time_type == "day") {
-        sql5 = s"delete from t_result_day_task_status  where sta_time ='$v_time'"
+        sql5 = s"delete from t_result_day_task_type  where sta_time ='$v_time'"
         connection.createStatement().executeUpdate(sql5)
         rs_result1 = sparkSession.sql(sql4)
-        sparkSession.sql("refresh table t_result_day_task_status")
+        sparkSession.sql("refresh table t_result_day_task_type")
 
 
         //从HIVE库同步任务类型统计日报至MYSQL库
-        sql4 = "select * from whdb.t_result_day_task_status"
+        sql4 = "select * from whdb.t_result_day_task_type"
         rs_result_mid_df = sparkSession.sql(sql4)
-        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_day_task_status", conn_info_bigdata_sys)
+        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_day_task_type", conn_info_bigdata_sys)
 
       }
 
@@ -183,110 +183,109 @@ class statisTaskStatus {
 
 
       //按月统计任务类型
-      sparkSession.sql("truncate table  whdb.t_result_mon_task_status")
+      sparkSession.sql("truncate table  whdb.t_result_mon_task_type")
       sql4 = " " +
-        " insert into t_result_mon_task_status " +
-        " select  substr(status_update_time,1,7), " +
-        " m.task_status, " +
+        " insert into t_result_mon_task_type " +
+        " select  substr(task_create_time,1,7), " +
+        " task_schedule_type, " +
         " n.dic_name, " +
         " count(1) cn " +
         "  from t_imp_task m, " +
         " dic_code n " +
-        "   where m.task_status=n.dic_code " +
-        " and substr(status_update_time,1,7)= '" + v_mon + "'" +
-        " group by substr(status_update_time,1,7), " +
-        " m.task_status, " +
+        "   where task_schedule_type=n.dic_code " +
+        " and substr(task_create_time,1,7)= '" + v_mon + "'" +
+        " group by substr(task_create_time,1,7), " +
+        " task_schedule_type, " +
         " n.dic_name "
 
       if (v_time_type == "mon") {
         rs_result1 = sparkSession.sql(sql4)
-        sql5 = s"delete from t_result_mon_task_status  where sta_time ='$v_time'"
+        sql5 = s"delete from t_result_mon_task_type  where sta_time ='$v_time'"
         connection.createStatement().executeUpdate(sql5)
         //从HIVE库同步任务类型统计月报至MYSQL库
-        sql4 = "select * from whdb.t_result_mon_task_status"
+        sql4 = "select * from whdb.t_result_mon_task_type"
         rs_result_mid_df = sparkSession.sql(sql4)
-        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_mon_task_status", conn_info_bigdata_sys)
+        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_mon_task_type", conn_info_bigdata_sys)
 
       }
 
 
 
       //按周统计任务类型
-      sparkSession.sql("truncate table  whdb.t_result_week_task_status")
+      sparkSession.sql("truncate table  whdb.t_result_week_task_type")
       sql4 = " " +
-        " insert into t_result_week_task_status " +
-        " select  substr(status_update_time,1,4)||" + "weekofyear(status_update_time), " +
-        " m.task_status, " +
+        " insert into t_result_week_task_type " +
+        " select  substr(task_create_time,1,4)||" + "weekofyear(task_create_time), " +
+        " task_schedule_type, " +
         " n.dic_name, " +
         " count(1) cn " +
         "  from t_imp_task m, " +
         " dic_code n " +
-        "   where m.task_status=n.dic_code " +
-        " and substr(status_update_time,1,4)||" + "weekofyear(status_update_time)= '" + v_week + "'" +
-        " group by substr(status_update_time,1,4)||" + "weekofyear(status_update_time), " +
-        " m.task_status, " +
+        "   where task_schedule_type=n.dic_code " +
+        " and substr(task_create_time,1,4)||" + "weekofyear(task_create_time)= '" + v_week + "'" +
+        " group by substr(task_create_time,1,4)||" + "weekofyear(task_create_time), " +
+        " task_schedule_type, " +
         " n.dic_name "
 
       //按周统计
       if (v_time_type == "week") {
 
         rs_result1 = sparkSession.sql(sql4)
-        sql5 = s"delete from t_result_week_task_status  where sta_time ='$v_time'"
+        sql5 = s"delete from t_result_week_task_type  where sta_time ='$v_time'"
         connection.createStatement().executeUpdate(sql5)
 
         //从HIVE库同步任务类型统计周报至MYSQL库
-        sql4 = "select * from whdb.t_result_week_task_status"
+        sql4 = "select * from whdb.t_result_week_task_type"
         rs_result_mid_df = sparkSession.sql(sql4)
-        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_week_task_status", conn_info_bigdata_sys)
+        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_week_task_type", conn_info_bigdata_sys)
 
       }
 
 
       //按小时统计任务类型
-      sparkSession.sql("truncate table  whdb.t_result_hour_task_status")
+      sparkSession.sql("truncate table  whdb.t_result_hour_task_type")
       sql4 = " " +
-        " insert into t_result_hour_task_status " +
-        " select  substr(status_update_time,1,13) , " +
-        " m.task_status, " +
+        " insert into t_result_hour_task_type " +
+        " select  substr(task_create_time,1,13) , " +
+        " task_schedule_type, " +
         " n.dic_name, " +
         " count(1) cn " +
         "  from t_imp_task m, " +
         " dic_code n " +
-        "   where m.task_status=n.dic_code " +
-        " and substr(status_update_time,1,13)= '" + v_hour + "'" +
-        " group by substr(status_update_time,1,13), " +
-        " m.task_status, " +
+        "   where task_schedule_type=n.dic_code " +
+        " and substr(task_create_time,1,13)= '" + v_hour + "'" +
+        " group by substr(task_create_time,1,13), " +
+        " task_schedule_type, " +
         " n.dic_name "
 
       //按小时统计
       if (v_time_type == "hour") {
         rs_result1 = sparkSession.sql(sql4)
         //先清空WEB MYSQL库中的结果数据（重复跑程序时需要删除原先已有的结果数据）
-        sql5 = s"delete from t_result_hour_task_status  where sta_time ='$v_time'"
+        sql5 = s"delete from t_result_hour_task_type  where sta_time ='$v_time'"
         connection.createStatement().executeUpdate(sql5)
 
         //从HIVE库同步任务类型统计日报至MYSQL库
-        sql4 = "select * from whdb.t_result_hour_task_status"
+        sql4 = "select * from whdb.t_result_hour_task_type"
         rs_result_mid_df = sparkSession.sql(sql4)
-        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_hour_task_status", conn_info_bigdata_sys)
+        rs_result_mid_df.write.mode(SaveMode.Append).jdbc(url_bigdata_sys, "t_result_hour_task_type", conn_info_bigdata_sys)
       }
 
-      //执行完毕将周期维度的状态改为成功
+      //执行完毕将周期维度的状态改为成功(如所有的日报统计完后才改这个状态，此名需要放在最后执行)
       //var sql = s"select min(t.statis_time) statis_time from t_task_time_status t where t.status ='none' and t.time_type='$v_time_type'"
 
-      //sql4 = s"update t_task_time_status t set t.status='successfull',t.info='任务状态统计成功'   where t.statis_time ='$v_time' and t.time_type='$v_time_type'"
-      sql4 = s"update t_task_time_status t set t.info='任务状态统计成功'   where t.statis_time ='$v_time' and t.time_type='$v_time_type'"
+      sql4 = s"update t_task_time_status t set t.status='successfull',t.info='任务类型统计成功，全部执行完成!'   where t.statis_time ='$v_time' and t.time_type='$v_time_type'"
       connection.createStatement().executeUpdate(sql4)
 
 
-      sparkSession.stop()
-      connection.close()
-      return 0
+      //sparkSession.stop()
+      //connection.close()
+      //return 0
     }
     catch{
 
       case e: ArithmeticException => println(e)
-      //case ex: Throwable =>println("found a unknown exception"+ ex)
+      case ex: Throwable =>println("found a unknown exception"+ ex)
     }
     finally {
 
@@ -294,5 +293,7 @@ class statisTaskStatus {
 
 
   }
+
+
 
 }

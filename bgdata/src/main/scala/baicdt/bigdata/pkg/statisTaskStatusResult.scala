@@ -7,7 +7,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 //按日 月 周 小时统计接入任务状态
-class statisTaskStatus {
+class statisTaskStatusResult {
   //按日 月 周 小时统计接入任务状态
   def runStatisTaskStatus(f_time_type:String){
 
@@ -74,7 +74,7 @@ class statisTaskStatus {
 
       val sparkSession = SparkSession.builder()
         .appName("spark-sql-demo")
-        .master("local[*]")
+        //.master("local[*]")
         //.master("yarn")
         .config("hive.metastore.uris", "thrift://ambari03.baicdt.com:9083")
         .config("dfs.client.use.datanode.hostname", "true") //通过域名来访问HIVE,不是通过内网IP，因为本地程序和hadoop不是在一个网段，本地程序通过VPN访问的hadoop集群
@@ -279,14 +279,14 @@ class statisTaskStatus {
       connection.createStatement().executeUpdate(sql4)
 
 
-      sparkSession.stop()
-      connection.close()
-      return 0
+      //sparkSession.stop()
+      //connection.close()
+
     }
     catch{
 
       case e: ArithmeticException => println(e)
-      //case ex: Throwable =>println("found a unknown exception"+ ex)
+      case ex: Throwable =>println("found a unknown exception"+ ex)
     }
     finally {
 
@@ -294,5 +294,6 @@ class statisTaskStatus {
 
 
   }
+
 
 }
