@@ -8,6 +8,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import baicdt.bigdata.pkg.statisTaskStatus
 import baicdt.bigdata.pkg.statisTaskTypeResult
+import baicdt.bigdata.pkg.controlInStatics
+import baicdt.bigdata.pkg.controlInben
 
 
 
@@ -20,6 +22,23 @@ object SparkSQLApp {
   def main(args: Array[String]): Unit = {
     System.setProperty("HADOOP_USER_NAME", "hdfs")
     System.setProperty("user.name", "hdfs")
+
+
+    //本周及最近一周、本年、本月累计数据接入量指标
+    var ControlInben:controlInben= new controlInben
+    ControlInben.runStatisInBen
+
+    //控制页面，任务数统计
+    var ControlInStatics:controlInStatics=new controlInStatics
+
+    //统计累计接入数据总量、总任务数、总失败任务数
+    ControlInStatics.runControlInStatics_total
+
+    //按年统计各数据源接入数据量占比
+    ControlInStatics.runControlInStatics
+
+
+
     if (args.length==4) {
       println(args(0).toString)
       println(args(1).toString)
