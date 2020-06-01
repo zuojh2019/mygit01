@@ -74,7 +74,7 @@ class statisTaskStatusResult {
 
       val sparkSession = SparkSession.builder()
         .appName("spark-sql-demo")
-        //.master("local[*]")
+        .master("local[*]")
         //.master("yarn")
         .config("hive.metastore.uris", "thrift://ambari03.baicdt.com:9083")
         .config("dfs.client.use.datanode.hostname", "true") //通过域名来访问HIVE,不是通过内网IP，因为本地程序和hadoop不是在一个网段，本地程序通过VPN访问的hadoop集群
@@ -121,6 +121,13 @@ class statisTaskStatusResult {
 
 
       sparkSession.sql("use whdb")
+
+
+
+
+
+
+
       //从WEB MYSQL 库中读取接入任务表
       val rs_t_imp_task_df = sparkSession.read.format("jdbc").jdbc(url3, "t_imp_task", conn_info3)
       rs_t_imp_task_df.show()

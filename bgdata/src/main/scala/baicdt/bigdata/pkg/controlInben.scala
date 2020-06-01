@@ -136,6 +136,7 @@ class controlInben {
         " sum(task_in_size)"+
         " from t_imp_task"+
         s" where substr(status_update_time,1,10)>=date_sub(curdate(),interval 7 day) "+
+        //s" where weekofyear(status_update_time)=20 "+
         " group by substr(status_update_time,1,10)"
 
       connection.createStatement().executeUpdate(sqltext)
@@ -225,7 +226,78 @@ class controlInben {
 
       //[统计本周的数据接入量end]
 
-      println("successfull!")
+      //[统计本月累计数据接入量同比本周累计接入量环比start]
+
+      v_time=20.toString
+      var v_bzfb_ratio=(0).toFloat  //本周环比
+      var v_bytb_ratio=(0).toFloat   //本月同比
+      //统计本周累计的接入数据量的环比
+      sqltext=s"select sum(task_in_size)  total_size from t_imp_task where weekofyear(status_update_time)=$v_time"
+      rs1 = connection.createStatement().executeQuery(sqltext)
+      while (rs1.next()) {
+        v_cnt = rs1.getInt("total_size")
+      }
+
+
+      if (v_cnt!=0) {
+        sqltext = s"select   (sum(case when  weekofyear(status_update_time)=$v_time  then task_in_size else 0 end) " +
+          s"-sum(case when  weekofyear(status_update_time)=weekofyear(date_sub(now(),interval 7 day))  and status_update_time <=date_sub(now(),interval 7 day)   then " +
+          s" task_in_size else 0 end)) /sum(case when  weekofyear(status_update_time)=$v_time  then task_in_size else 0 end)  fbratio" +
+          " from t_imp_task "
+        rs1 = connection.createStatement().executeQuery(sqltext)
+        while (rs1.next()) {
+          v_bzfb_ratio = rs1.getFloat("fbratio")
+        }
+      }
+      else {println("本周累计接入数据量为0，环比下降100%")
+        v_bzfb_ratio=(-1).toFloat
+      }
+
+      //本月累计接入量同比
+      //获取当前时间所对应的月份
+      sqltext = s"select substr(now(),1,7) as dt"
+      rs1 = connection.createStatement().executeQuery(sqltext)
+      while (rs1.next()) {
+        v_time = rs1.getString("dt")
+        if (v_time==null) {sys.exit(-1)}
+      }
+
+
+
+      sqltext=s"select sum(task_in_size)  total_size from t_imp_task where substr(status_update_time,1,7)=$v_time"
+      rs1 = connection.createStatement().executeQuery(sqltext)
+      while (rs1.next()) {
+        v_cnt = rs1.getInt("total_size")
+      }
+
+
+      if (v_cnt!=0) {
+        sqltext = s"select   (sum(case when  substr(status_update_time,1,7)=$v_time  then task_in_size else 0 end) " +
+          s"-sum(case when  substr(status_update_time,1,7)=substr(date_sub(now(),interval 1 month),1,7 ) and status_update_time <=date_sub(now(),interval 1 month)   then " +
+          s" task_in_size else 0 end)) /sum(case when  substr(status_update_time,1,7)=$v_time  then task_in_size else 0 end)  fbratio" +
+          " from t_imp_task "
+        rs1 = connection.createStatement().executeQuery(sqltext)
+        while (rs1.next()) {
+          v_bytb_ratio = rs1.getFloat("fbratio")
+        }
+      }
+      else {println("本月累计接入数据量为0，环比下降100%")
+        v_bytb_ratio=(-1).toFloat
+      }
+
+      //[统计本月累计数据接入量同比本周累计接入量环比end]
+      sqltext ="delete from t_ben_mon_week_ratio"
+      connection.createStatement().executeUpdate(sqltext)
+
+      sqltext ="insert into t_ben_mon_week_ratio "+
+               "select "+
+                 s"$v_bzfb_ratio"+","+s"$v_bytb_ratio"
+      connection.createStatement().executeUpdate(sqltext)
+
+
+
+
+        println("successfull!")
     }
     catch{
 
